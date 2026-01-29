@@ -12,7 +12,6 @@ Un sistema de **Generación Aumentada por Recuperación (RAG)** de nivel empresa
 - 🚀 Embeddings generados localmente (no requiere API)
 - ☁️ Almacenamiento vectorial escalable en Azure AI Search
 - 💬 Chat interactivo impulsado por Groq LPU (Llama 3.3 70B)
-- 💰 Arquitectura cost-optimized (únicamente paga por inferencia)
 
 ---
 
