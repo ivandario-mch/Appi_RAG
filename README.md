@@ -6,9 +6,21 @@
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-green)
 
 
+<<<<<<< HEAD
 
 ##
 ### 1️⃣ Instalación
+=======
+**Características clave:**
+- 🎯 Procesamiento local de documentos PDF (Edge Computing)
+- 🚀 Embeddings generados localmente (no requiere API)
+- ☁️ Almacenamiento vectorial escalable en Azure AI Search
+- 💬 Chat interactivo impulsado por Groq LPU (Llama 3.3 70B)
+
+---
+
+
+>>>>>>> 58cbd2f3d136e6733635d9a740b9c3a0fc43b822
 
 ```bash
 # Clonar repositorio
@@ -28,6 +40,7 @@ source venv/bin/activate
 ```
 
 ```bash
+<<<<<<< HEAD
 
 ```
 
@@ -82,3 +95,9 @@ INDEX_NAME = "portfolio-rag-index"     # Nombre del índice en Azure
 
 
 
+=======
+# Instalar dependencias
+pip install -r requirements.txt
+```
+
+>>>>>>> 58cbd2f3d136e6733635d9a740b9c3a0fc43b822
