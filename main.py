@@ -1,81 +1,53 @@
 import sys
-import time
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from src.config import Config
 from src.ingestion import IngestionPipeline
 from src.rag_engine import RAGEngine
 
-def main():
-    # 1. Validación de Entorno
+# 1. Inicialización
+app = FastAPI(title="AI appi RAG")
+
+# Validamos configuración al arrancar
+try:
+    Config.validate()
+    # Instanciamos el motor una sola vez para que sea rápido
+    engine = RAGEngine()
+except Exception as e:
+    print(f"❌ Error inicial: {e}")
+    sys.exit(1)
+
+# 2. Modelos de datos (lo que recibimos por internet)
+class ChatRequest(BaseModel):
+    message: str
+
+class IngestRequest(BaseModel):
+    file_path: str
+
+# --- ENDPOINT PARA EL CHAT (Opción 2 de tu menú) ---
+@app.post("/chat")
+async def chat_endpoint(request: ChatRequest):
     try:
-        Config.validate()
-    except ValueError as e:
-        print(f"❌ Error de Configuración: {e}")
-        sys.exit(1)
+        # Usamos tu lógica del RAGEngine
+        answer, sources = engine.chat(request.message)
+        return {
+            "answer": answer,
+            "sources": list(set(sources)) if sources else []
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    # 2. Bucle Principal (Game Loop Pattern)
-    while True:
-        print("\n" + "="*40)
-        print("      🧠 AZURE HYBRID RAG SYSTEM")
-        print("="*40)
-        print(" [1] 📄 Ingestar nuevo PDF")
-        print(" [2] 💬 Iniciar Chat con la Base de Datos")
-        print(" [3] 🚪 Salir")
-        
-        mode = input("\nSelecciona una opción (1-3): ").strip()
+# --- ENDPOINT PARA INGESTA (Opción 1 de tu menú) ---
+@app.post("/ingest")
+async def ingest_endpoint(request: IngestRequest):
+    try:
+        pipeline = IngestionPipeline()
+        pipeline.process_pdf(request.file_path)
+        return {"status": "success", "message": f"Archivo {request.file_path} procesado."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-        # --- OPCIÓN 1: INGESTA ---
-        if mode == "1":
-            path = input("Ingresa la ruta del PDF (ej: data/document.pdf): ").strip()
-            
-            try:
-                pipeline = IngestionPipeline()
-                pipeline.process_pdf(path)
-                input("\nPresiona ENTER para volver al menú...")
-            except Exception as e:
-                print(f"\n❌ Error durante la ingesta: {e}")
-                time.sleep(2)
-
-        # --- OPCIÓN 2: CHAT ---
-        elif mode == "2":
-            print("\n🔄 Inicializando Motor de Chat...")
-            try:
-                engine = RAGEngine()
-                print("\n💬 --- CHAT INICIADO (Escribe 'salir' para volver) ---")
-                
-                while True:
-                    q = input("\nUsuario 👤: ").strip()
-                    
-                    if q.lower() in ["salir", "exit", "menu"]:
-                        print("Guardando sesión y volviendo al menú...")
-                        break
-                    
-                    if not q: continue # Ignorar enters vacíos
-                    
-                    print("Bot 🤖: Pensando...", end="\r")
-                    
-                    # Llamada al cerebro
-                    answer, sources = engine.chat(q)
-                    
-                    # Limpiar línea de "Pensando..."
-                    print(" " * 20, end="\r")
-                    
-                    print(f"Bot 🤖: {answer}")
-                    if sources:
-                        print(f"📚 Fuentes: {list(set(sources))}")
-                        
-            except Exception as e:
-                print(f"\n❌ Error crítico en el motor de chat: {e}")
-                print("Tip: Verifica que el índice exista en Azure y tus claves sean correctas.")
-                input("Presiona ENTER para continuar...")
-
-        # --- OPCIÓN 3: SALIR ---
-        elif mode == "3":
-            print("👋 ¡Hasta luego!")
-            sys.exit(0)
-            
-        else:
-            print("⚠️ Opción no válida.")
-            time.sleep(1)
-
-if __name__ == "__main__":
-    main()
+# --- ENDPOINT DE SALUD ---
+@app.get("/")
+async def root():
+    return {"status": "online", "message": "API de IA para Vendure lista"}
