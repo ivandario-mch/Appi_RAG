@@ -17,7 +17,7 @@
 
 ```bash
 # Clone repository
-git clone https://github.com/kevinestebanpotosi/RAG.git
+git clone https://github.com/kevinestebanpotosi/Appi_RAG.git
 cd RAG
 ```
 
@@ -26,10 +26,9 @@ cd RAG
 python -m venv venv
 
 # Activate environment
-# Windows:
+
 venv\Scripts\activate
-# macOS/Linux:
-source venv/bin/activate
+
 ```
 
 ```bash
@@ -45,7 +44,6 @@ pip install -r requirements.txt
 RAG/
 ├── main.py                 # Entry point (FastAPI App)
 ├── requirements.txt        # Project dependencies
-├── .env.example           # Environment variables template
 ├── .gitignore            # Git ignore file
 ├── README.md             # This file
 │
@@ -55,11 +53,6 @@ RAG/
 │   ├── ingestion.py      # PDF ingestion pipeline
 │   └── rag_engine.py     # RAG Engine (retrieval + generation)
 │
-├── data/
-│   └── *.pdf             # PDFs to process (not in git)
-│
-├── notebooks/            # Jupyter notebooks for experimentation
-│   └── (analysis and tests)
 ```
 
 ---
