@@ -5,20 +5,6 @@
 ![Groq](https://img.shields.io/badge/Groq-LPU-orange)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)
 
-**Key Features:**
-- 🎯 **Edge Computing**: Local PDF processing 
-- 🚀 **FastEmbed**: Lightweight, local embedding generation (No PyTorch/GPU required).
-- ☁️ **Scalable**: Vector storage in Azure AI Search.
-- 💬 **High Performance**: Interactive chat powered by Groq LPU (Llama 3.3 70B).
-
----
-
-## 🚀 Quick Start Guide
-
-### 1️⃣ Prerequisites
-- **Python 3.9+** installed.
-- **Git** installed.
-- **Docker** (optional, for containerized deployment).
 
 ### 2️⃣ Clone the Repository
 ```bash
