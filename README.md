@@ -1,83 +1,133 @@
 # 🧠 Azure Hybrid RAG System (Cost-Optimized)
 
-![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
+![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
 ![Azure](https://img.shields.io/badge/Azure-AI%20Search-0078D4)
 ![Groq](https://img.shields.io/badge/Groq-LPU-orange)
-![Status](https://img.shields.io/badge/Status-Production%20Ready-green)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)
 
 **Key Features:**
-- 🎯 Local PDF Processing (Edge Computing)
-- 🚀 Locally Generated Embeddings (No API required)
-- ☁️ Scalable Vector Storage in Azure AI Search
-- 💬 Interactive Chat powered by Groq LPU (Llama 3.3 70B)
+- 🎯 **Edge Computing**: Local PDF processing 
+- 🚀 **FastEmbed**: Lightweight, local embedding generation (No PyTorch/GPU required).
+- ☁️ **Scalable**: Vector storage in Azure AI Search.
+- 💬 **High Performance**: Interactive chat powered by Groq LPU (Llama 3.3 70B).
 
 ---
 
-## 1️⃣ Installation
+## 🚀 Quick Start Guide
 
+### 1️⃣ Prerequisites
+- **Python 3.9+** installed.
+- **Git** installed.
+- **Docker** (optional, for containerized deployment).
+
+### 2️⃣ Clone the Repository
 ```bash
-# Clone repository
 git clone https://github.com/kevinestebanpotosi/Appi_RAG.git
-cd RAG
+cd Appi_RAG
 ```
 
+### 3️⃣ Environment Configuration
+Create a `.env` file in the root directory. **Ask the team lead for the keys.**
+```ini
+# .env file content
+AZURE_SEARCH_ENDPOINT="https://<your-service>.search.windows.net"
+AZURE_SEARCH_KEY="<your-admin-key>"
+GROQ_API_KEY="<your-groq-key>"
+```
+
+### 4️⃣ Local Installation
+
+#### Create Virtual Environment
 ```bash
-# Create virtual environment
+# Windows
 python -m venv venv
-
-# Activate environment
-
 venv\Scripts\activate
 
+# macOS/Linux
+python3 -m venv venv
+source venv/bin/activate
 ```
 
+#### Install Dependencies
 ```bash
-# Install dependencies
 pip install -r requirements.txt
 ```
 
+#### Run the Application
+Start the development server:
+```bash
+uvicorn main:app --reload
+```
+The API will be available at: `http://localhost:8000`
+
 ---
 
-## 📂 Project Structure
+## 🐳 Docker Deployment
 
+To build and run the application in a production-like environment:
+
+### Build Image
+```bash
+docker build -t appi-rag .
 ```
-RAG/
-├── main.py                 # Entry point (FastAPI App)
-├── requirements.txt        # Project dependencies
-├── .gitignore            # Git ignore file
-├── README.md             # This file
+
+### Run Container
+Make sure your `.env` file is present, then run:
+```bash
+docker run -p 8000:8000 --env-file .env appi-rag
+```
+
+---
+
+## 📡 API Usage
+
+### Health Check
+```bash
+curl http://localhost:8000/
+# Output: {"status": "online", ...}
+```
+
+### 1. Ingest a PDF (Local File)
+**Note:** This runs locally on the server filesystem.
+```bash
+curl -X POST "http://localhost:8000/ingest" \
+     -H "Content-Type: application/json" \
+     -d '{"file_path": "data/sample_document.pdf"}'
+```
+
+### 2. Chat with Documents
+```bash
+curl -X POST "http://localhost:8000/chat" \
+     -H "Content-Type: application/json" \
+     -d '{"message": "What are the key takeaways from the document?"}'
+```
+
+---
+
+## 📦 Project Structure
+```
+Appi_RAG/
+├── main.py                 # FastAPI Application Application entry point
+├── Dockerfile              # Container definition
+├── requirements.txt        # Python dependencies (Optimized)
+├── .env                    # Environment variables (DO NOT COMMIT)
+├── README.md               # Documentation
 │
 ├── src/
-│   ├── __init__.py
-│   ├── config.py         # Centralized configuration
-│   ├── ingestion.py      # PDF ingestion pipeline
-│   └── rag_engine.py     # RAG Engine (retrieval + generation)
+│   ├── config.py           # Configuration loader
+│   ├── ingestion.py        # PDF processing & Azure upload pipeline
+│   └── rag_engine.py       # RAG logic (Retrieval + Generation)
 │
+└── data/                   # Directory for storing local PDFs
 ```
 
 ---
 
-## 📦 Main Dependencies
+## 🛠 Tech Stack
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| **Core** | Python 3.9, FastAPI | API Framework |
+| **Embeddings** | FastEmbed (Qdrant) | Lightweight local vectorization |
+| **Vector DB** | Azure AI Search | Enterprise-grade vector storage |
+| **LLM** | Groq (Llama 3.3) | Ultra-fast inference |
 
-| Package | Version | Purpose |
-|---------|---------|-----------|
-| `azure-search-documents` | ≥11.4.0 | Azure AI Search Client |
-| `groq` | ≥0.5.0 | Groq API for inference |
-| `sentence-transformers` | ≥2.2.0 | Local embedding generation |
-| `pypdf` | ≥4.0.0 | PDF text extraction |
-| `torch` | ≥2.0.0 | Transformers dependency |
-| `python-dotenv` | ≥1.0.0 | Environment variable management |
-
----
-
-## ⚙️ Advanced Configuration
-
-### Adjustable Parameters (src/config.py)
-
-```python
-CHUNK_SIZE = 500           # Chunk size in characters
-CHUNK_OVERLAP = 50         # Overlap between chunks
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"  # Embedding model
-CHAT_MODEL = "llama-3.3-70b-versatile"  # LLM Model
-INDEX_NAME = "portfolio-rag-index"     # Azure Index Name
-```
