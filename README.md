@@ -6,22 +6,15 @@
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)
 
 
-### 2️⃣ Clone the Repository
+###  Clone the Repository
 ```bash
 git clone https://github.com/kevinestebanpotosi/Appi_RAG.git
 cd Appi_RAG
 ```
 
-### 3️⃣ Environment Configuration
-Create a `.env` file in the root directory. **Ask the team lead for the keys.**
-```ini
-# .env file content
-AZURE_SEARCH_ENDPOINT="https://<your-service>.search.windows.net"
-AZURE_SEARCH_KEY="<your-admin-key>"
-GROQ_API_KEY="<your-groq-key>"
-```
 
-### 4️⃣ Local Installation
+
+###  Local Installation
 
 #### Create Virtual Environment
 ```bash
