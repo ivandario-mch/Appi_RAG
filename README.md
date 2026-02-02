@@ -5,99 +5,86 @@
 ![Groq](https://img.shields.io/badge/Groq-LPU-orange)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-green)
 
-
-<<<<<<< HEAD
-
-##
-### 1️⃣ Instalación
-=======
-**Características clave:**
-- 🎯 Procesamiento local de documentos PDF (Edge Computing)
-- 🚀 Embeddings generados localmente (no requiere API)
-- ☁️ Almacenamiento vectorial escalable en Azure AI Search
-- 💬 Chat interactivo impulsado por Groq LPU (Llama 3.3 70B)
+**Key Features:**
+- 🎯 Local PDF Processing (Edge Computing)
+- 🚀 Locally Generated Embeddings (No API required)
+- ☁️ Scalable Vector Storage in Azure AI Search
+- 💬 Interactive Chat powered by Groq LPU (Llama 3.3 70B)
 
 ---
 
-
->>>>>>> 58cbd2f3d136e6733635d9a740b9c3a0fc43b822
+## 1️⃣ Installation
 
 ```bash
-# Clonar repositorio
+# Clone repository
 git clone https://github.com/kevinestebanpotosi/RAG.git
 cd RAG
 ```
 
 ```bash
-# Crear entorno virtual
+# Create virtual environment
 python -m venv venv
 
-# Activar entorno
-# En Windows:
+# Activate environment
+# Windows:
 venv\Scripts\activate
-# En macOS/Linux:
+# macOS/Linux:
 source venv/bin/activate
 ```
 
 ```bash
-<<<<<<< HEAD
-
-```
-
-
-```
-RAG/
-├── main.py                 # Punto de entrada (CLI interactiva)
-├── requirements.txt        # Dependencias del proyecto
-├── .env.example           # Template de variables de entorno
-├── .gitignore            # Archivos ignorados en git
-├── README.md             # Este archivo
-│
-├── src/
-│   ├── __init__.py
-│   ├── config.py         # Configuración centralizada
-│   ├── ingestion.py      # Pipeline de ingesta de PDFs
-│   └── rag_engine.py     # Motor de RAG (retrieval + generation)
-│
-├── data/
-│   └── *.pdf             # PDFs para procesar (no se suben a git)
-│
-├── notebooks/            # Jupyter notebooks para experimentación
-│   └── (análisis y pruebas)
-```
-
----
-
-## 📦 Dependencias Principales
-
-| Paquete | Versión | Propósito |
-|---------|---------|-----------|
-| `azure-search-documents` | ≥11.4.0 | Cliente de Azure AI Search |
-| `groq` | ≥0.5.0 | API de Groq para inferencia |
-| `sentence-transformers` | ≥2.2.0 | Generación de embeddings locales |
-| `pypdf` | ≥4.0.0 | Extracción de texto de PDFs |
-| `torch` | ≥2.0.0 | Dependencia de transformers |
-| `python-dotenv` | ≥1.0.0 | Gestión de variables de entorno |
-
----
-
-## ⚙️ Configuración Avanzada
-
-### Parámetros Ajustables (src/config.py)
-
-```python
-CHUNK_SIZE = 500           # Tamaño de cada chunk en caracteres
-CHUNK_OVERLAP = 50         # Superposición entre chunks
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"  # Modelo de embeddings
-CHAT_MODEL = "llama-3.3-70b-versatile"  # Modelo LLM
-INDEX_NAME = "portfolio-rag-index"     # Nombre del índice en Azure
-```
-
-
-
-=======
-# Instalar dependencias
+# Install dependencies
 pip install -r requirements.txt
 ```
 
->>>>>>> 58cbd2f3d136e6733635d9a740b9c3a0fc43b822
+---
+
+## 📂 Project Structure
+
+```
+RAG/
+├── main.py                 # Entry point (FastAPI App)
+├── requirements.txt        # Project dependencies
+├── .env.example           # Environment variables template
+├── .gitignore            # Git ignore file
+├── README.md             # This file
+│
+├── src/
+│   ├── __init__.py
+│   ├── config.py         # Centralized configuration
+│   ├── ingestion.py      # PDF ingestion pipeline
+│   └── rag_engine.py     # RAG Engine (retrieval + generation)
+│
+├── data/
+│   └── *.pdf             # PDFs to process (not in git)
+│
+├── notebooks/            # Jupyter notebooks for experimentation
+│   └── (analysis and tests)
+```
+
+---
+
+## 📦 Main Dependencies
+
+| Package | Version | Purpose |
+|---------|---------|-----------|
+| `azure-search-documents` | ≥11.4.0 | Azure AI Search Client |
+| `groq` | ≥0.5.0 | Groq API for inference |
+| `sentence-transformers` | ≥2.2.0 | Local embedding generation |
+| `pypdf` | ≥4.0.0 | PDF text extraction |
+| `torch` | ≥2.0.0 | Transformers dependency |
+| `python-dotenv` | ≥1.0.0 | Environment variable management |
+
+---
+
+## ⚙️ Advanced Configuration
+
+### Adjustable Parameters (src/config.py)
+
+```python
+CHUNK_SIZE = 500           # Chunk size in characters
+CHUNK_OVERLAP = 50         # Overlap between chunks
+EMBEDDING_MODEL = "all-MiniLM-L6-v2"  # Embedding model
+CHAT_MODEL = "llama-3.3-70b-versatile"  # LLM Model
+INDEX_NAME = "portfolio-rag-index"     # Azure Index Name
+```
