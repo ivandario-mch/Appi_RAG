@@ -73,4 +73,4 @@ class IngestionPipeline:
         
         if batch:
             self.search_client.upload_documents(batch)
-        print("✅ Ingestion Complete.")
+        print("Ingestion Complete.")
