@@ -4,11 +4,11 @@ azure-ai-inference
 azure-core
 groq>=0.5.0
 
-# --- AI & Processing ---
+# --- AI & Processing --
 fastembed>=0.2.0
 #sentence-transformers>=2.2.0
-#pypdf>=4.0.0
-#torch>=2.0.0
+pypdf>=4.0.0
+torch>=2.0.0
 
 # --- Utilities ---
 python-dotenv
