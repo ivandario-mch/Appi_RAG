@@ -2,7 +2,7 @@ import sys
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from src.config import Config
-from src.ingestion import IngestionPipeline
+#from src.ingestion import IngestionPipeline
 from src.rag_engine import RAGEngine
 
 # Initialization
@@ -34,17 +34,17 @@ async def chat_endpoint(request: ChatRequest):
             "sources": list(set(sources)) if sources else []
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e) )
 
 # Ingestion Endpoint
-@app.post("/ingest")
+"""@app.post("/ingest")
 async def ingest_endpoint(request: IngestRequest):
     try:
         pipeline = IngestionPipeline()
         pipeline.process_pdf(request.file_path)
         return {"status": "success", "message": f"File {request.file_path} processed."}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))"""
 
 # Health Check Endpoint
 @app.get("/")

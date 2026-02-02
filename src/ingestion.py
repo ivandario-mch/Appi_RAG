@@ -1,6 +1,6 @@
 import os
 from pypdf import PdfReader
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents import SearchClient
 from azure.search.documents.indexes import SearchIndexClient
@@ -13,7 +13,10 @@ from src.config import Config
 class IngestionPipeline:
     def __init__(self):
         print(f"Loading Embedding Model: {Config.EMBEDDING_MODEL}...")
-        self.embed_model = SentenceTransformer(Config.EMBEDDING_MODEL)
+        # using the same model name as before if supported, or default
+        model_name = "sentence-transformers/all-MiniLM-L6-v2" if Config.EMBEDDING_MODEL == "all-MiniLM-L6-v2" else Config.EMBEDDING_MODEL
+        self.embed_model = TextEmbedding(model_name=model_name)
+        
         self.credential = AzureKeyCredential(Config.AZURE_KEY)
         self.index_client = SearchIndexClient(Config.AZURE_ENDPOINT, self.credential)
         self.search_client = SearchClient(Config.AZURE_ENDPOINT, Config.INDEX_NAME, self.credential)
@@ -54,7 +57,8 @@ class IngestionPipeline:
         
         batch = []
         for i, chunk in enumerate(chunks):
-            vector = self.embed_model.encode(chunk).tolist()
+            # fastembed returns a generator, so we convert to list
+            vector = list(self.embed_model.embed([chunk]))[0].tolist()
             doc_id = f"{os.path.basename(file_path)}-{i}".replace(".", "_").replace(" ", "")
             batch.append({
                 "id": doc_id,
