@@ -25,7 +25,7 @@ class IngestRequest(BaseModel):
     file_path: str
 
 # Chat Endpoint
-@app.post("/chat")
+@app.post("/api/chat")
 async def chat_endpoint(request: ChatRequest):
     try:
         answer, sources = engine.chat(request.message)

@@ -17,3 +17,6 @@ tqdm
 
 # --- Optional / Legacy ---
 # sentence-transformers>=2.2.0  # Optional if using local heavy models
+
+# --- Testing ---
+locust>=2.0.0
