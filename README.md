@@ -8,7 +8,7 @@
 
 ###  Clone the Repository
 ```bash
-git clone https://github.com/kevinestebanpotosi/Appi_RAG.git
+git clone https://github.com/ivandario-mch/Appi_RAG.git
 cd Appi_RAG
 ```
 
@@ -97,7 +97,7 @@ curl -X POST "http://localhost:8000/chat" \
 ---
 
 ## 📦 Project Structure
-'''
+```txt
 Appi_RAG/
 ├── data/                      # 📁 Coloca tus PDFs aquí
 ├── src/
@@ -106,12 +106,12 @@ Appi_RAG/
 │   ├── ingestion.py
 │   └── rag_engine.py
 ├── main.py                   # API FastAPI
-├── probe.py                  # 🛠 Script de prueba (Nuevo)
+├── probe.py                  # 🛠 Script de prueba 
 ├── run_ingestion.py
 ├── .env
 ├── requirements.txt
 └── README.md
-'''
+```
 ## 🛠 Tech Stack
 | Component | Technology | Purpose |
 |-----------|------------|---------|
