@@ -131,8 +131,15 @@ Appi_RAG/
 Create a `.env` file in the root directory with the following variables:
 
 ```ini
+LLM_PROVIDER=azure
+AZURE_OPENAI_ENDPOINT="your_azure_openai_endpoint"
+AZURE_OPENAI_API_KEY="your_azure_openai_api_key"
+AZURE_OPENAI_DEPLOYMENT="your_azure_openai_deployment"
+AZURE_OPENAI_API_VERSION="your_azure_openai_api_version"
+
 QDRANT_URL="your_qdrant_url"
 QDRANT_API_KEY="your_qdrant_api_key"
+
 GROQ_API_KEY="your_groq_api_key"
 COLLECTION_NAME="ecommerce-rag-collection"
 ```

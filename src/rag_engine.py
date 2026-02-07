@@ -15,15 +15,16 @@ class RAGEngine:
         model_name = "sentence-transformers/all-MiniLM-L6-v2" if Config.EMBEDDING_MODEL == "all-MiniLM-L6-v2" else Config.EMBEDDING_MODEL
         self.embed_model = TextEmbedding(model_name=model_name)
         
-        # Inicializar LLM según provider
+        # Inicializar LLM según provider configurado
         if Config.LLM_PROVIDER == "azure":
-            print("🔷 Usando Azure OpenAI")
+            print("🔷 Usando Azure AI Foundry")
             self.llm_client = AzureOpenAI(
                 api_key=Config.AZURE_OPENAI_KEY,
                 api_version=Config.AZURE_OPENAI_API_VERSION,
                 azure_endpoint=Config.AZURE_OPENAI_ENDPOINT
             )
             self.model_name = Config.AZURE_OPENAI_DEPLOYMENT
+            self.is_azure = True
         else:
             print("🟢 Usando Groq")
             self.llm_client = Groq(
@@ -31,6 +32,7 @@ class RAGEngine:
                 http_client=httpx.Client()
             )
             self.model_name = "llama-3.3-70b-versatile"
+            self.is_azure = False
         
         # Qdrant Client
         print(f"Conectando a Qdrant: {Config.QDRANT_URL}")
@@ -84,18 +86,21 @@ class RAGEngine:
         try:
             print(f"🔎 Buscando en colección: {Config.COLLECTION_NAME}")
             
+            # Verificar que la colección tiene documentos
             collection_info = self.qdrant_client.get_collection(Config.COLLECTION_NAME)
             print(f"📊 Documentos en colección: {collection_info.points_count}")
             
             if collection_info.points_count == 0:
-                return "La base de conocimiento está vacía. Por favor, ejecuta la ingesta primero.", []
+                return "La base de conocimiento está vacía. Por favor, ejecuta la ingesta de documentos primero con: python run_ingestion.py", []
             
-            search_results = self.qdrant_client.search(
+            # Búsqueda vectorial con query_points
+            query_response = self.qdrant_client.query_points(
                 collection_name=Config.COLLECTION_NAME,
-                query_vector=vector,
+                query=vector,
                 limit=5,
                 score_threshold=0.3
             )
+            search_results = query_response.points
             
             print(f"✅ Encontrados {len(search_results)} resultados")
             
@@ -125,29 +130,36 @@ class RAGEngine:
         context = "\n\n".join(context_parts)
         
         # 4. Generar respuesta (Azure o Groq)
-        prompt = f"""
-Eres un Asistente de Compras Experto. Ayuda al usuario basándote SOLO en la información del contexto.
+        system_prompt = """Eres un Asistente de Compras Experto para [ecommer]. 
 
-CONTEXTO:
+Instrucciones:
+- Usa SOLO la información del contexto proporcionado
+- Sé profesional, entusiasta y servicial
+- Menciona precios y características específicas
+- Si la información no está en el contexto, dilo honestamente
+- Usa formato markdown para productos y precios
+- Finaliza con una pregunta para guiar la venta"""
+
+        user_prompt = f"""CONTEXTO:
 {context}
 
-PREGUNTA: {query}
+PREGUNTA DEL USUARIO: {query}
 
-Responde de forma profesional, entusiasta y útil. Menciona precios y características específicas del contexto.
-Si la información no está en el contexto, dilo honestamente.
-"""
+Responde basándote exclusivamente en el contexto anterior."""
         
         try:
-            print(f"🤖 Generando respuesta con {Config.LLM_PROVIDER.upper()}...")
+            provider_name = "Azure AI Foundry" if self.is_azure else "Groq"
+            print(f"🤖 Generando respuesta con {provider_name}...")
             
+            # Llamada compatible con Azure OpenAI y Groq
             response = self.llm_client.chat.completions.create(
-                messages=[
-                    {"role": "system", "content": "Eres un asistente de ventas experto."},
-                    {"role": "user", "content": prompt}
-                ],
                 model=self.model_name,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
                 temperature=0.5,
-                max_tokens=1024
+                max_tokens=512
             )
             
             answer = response.choices[0].message.content
@@ -156,6 +168,6 @@ Si la información no está en el contexto, dilo honestamente.
             return answer, list(set(sources))
             
         except Exception as e:
-            error_msg = f"Error en generación {Config.LLM_PROVIDER}: {str(e)}"
+            error_msg = f"Error en generación {provider_name}: {str(e)}"
             print(f"❌ {error_msg}")
             return error_msg, sources
