@@ -31,7 +31,7 @@ async def chat_endpoint(request: ChatRequest):
         answer, sources = engine.chat(request.message)
         return {
             "answer": answer,
-            "sources": list(set(sources)) if sources else []
+            "sources": sources
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e) )
