@@ -1,7 +1,8 @@
 import httpx
 from groq import Groq
+from openai import AzureOpenAI
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct, SearchRequest, NamedVector
+from qdrant_client.models import Distance, VectorParams, PointStruct
 from fastembed import TextEmbedding
 from src.config import Config
 import uuid
@@ -14,11 +15,22 @@ class RAGEngine:
         model_name = "sentence-transformers/all-MiniLM-L6-v2" if Config.EMBEDDING_MODEL == "all-MiniLM-L6-v2" else Config.EMBEDDING_MODEL
         self.embed_model = TextEmbedding(model_name=model_name)
         
-        # Initialize Groq
-        self.groq_client = Groq(
-            api_key=Config.GROQ_KEY,
-            http_client=httpx.Client()
-        )
+        # Inicializar LLM según provider
+        if Config.LLM_PROVIDER == "azure":
+            print("🔷 Usando Azure OpenAI")
+            self.llm_client = AzureOpenAI(
+                api_key=Config.AZURE_OPENAI_KEY,
+                api_version=Config.AZURE_OPENAI_API_VERSION,
+                azure_endpoint=Config.AZURE_OPENAI_ENDPOINT
+            )
+            self.model_name = Config.AZURE_OPENAI_DEPLOYMENT
+        else:
+            print("🟢 Usando Groq")
+            self.llm_client = Groq(
+                api_key=Config.GROQ_KEY,
+                http_client=httpx.Client()
+            )
+            self.model_name = "llama-3.3-70b-versatile"
         
         # Qdrant Client
         print(f"Conectando a Qdrant: {Config.QDRANT_URL}")
@@ -68,26 +80,22 @@ class RAGEngine:
             print(f"❌ {error_msg}")
             return error_msg, []
         
-        # 2. Buscar en Qdrant (método correcto)
+        # 2. Buscar en Qdrant
         try:
             print(f"🔎 Buscando en colección: {Config.COLLECTION_NAME}")
             
-            # Verificar que la colección tiene documentos
             collection_info = self.qdrant_client.get_collection(Config.COLLECTION_NAME)
             print(f"📊 Documentos en colección: {collection_info.points_count}")
             
             if collection_info.points_count == 0:
-                return "La base de conocimiento está vacía. Por favor, ejecuta la ingesta de documentos primero con: python run_ingestion.py", []
+                return "La base de conocimiento está vacía. Por favor, ejecuta la ingesta primero.", []
             
-            # Búsqueda vectorial
-            # Utilizando query_points ya que search puede no estar disponible
-            query_response = self.qdrant_client.query_points(
+            search_results = self.qdrant_client.search(
                 collection_name=Config.COLLECTION_NAME,
-                query=vector,
+                query_vector=vector,
                 limit=5,
                 score_threshold=0.3
             )
-            search_results = query_response.points
             
             print(f"✅ Encontrados {len(search_results)} resultados")
             
@@ -116,7 +124,7 @@ class RAGEngine:
         
         context = "\n\n".join(context_parts)
         
-        # 4. Generar respuesta con Groq
+        # 4. Generar respuesta (Azure o Groq)
         prompt = f"""
 Eres un Asistente de Compras Experto. Ayuda al usuario basándote SOLO en la información del contexto.
 
@@ -126,13 +134,18 @@ CONTEXTO:
 PREGUNTA: {query}
 
 Responde de forma profesional, entusiasta y útil. Menciona precios y características específicas del contexto.
+Si la información no está en el contexto, dilo honestamente.
 """
         
         try:
-            print("🤖 Generando respuesta con Groq...")
-            response = self.groq_client.chat.completions.create(
-                messages=[{"role": "user", "content": prompt}],
-                model=Config.CHAT_MODEL,
+            print(f"🤖 Generando respuesta con {Config.LLM_PROVIDER.upper()}...")
+            
+            response = self.llm_client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": "Eres un asistente de ventas experto."},
+                    {"role": "user", "content": prompt}
+                ],
+                model=self.model_name,
                 temperature=0.5,
                 max_tokens=1024
             )
@@ -143,6 +156,6 @@ Responde de forma profesional, entusiasta y útil. Menciona precios y caracterí
             return answer, list(set(sources))
             
         except Exception as e:
-            error_msg = f"Error en generación Groq: {str(e)}"
+            error_msg = f"Error en generación {Config.LLM_PROVIDER}: {str(e)}"
             print(f"❌ {error_msg}")
             return error_msg, sources

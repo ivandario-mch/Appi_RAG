@@ -20,3 +20,6 @@ tqdm
 
 # --- Testing ---
 locust>=2.0.0
+
+# --- Azure ---
+openai>=1.0.0
