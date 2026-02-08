@@ -8,7 +8,7 @@
 
 ###  Clone the Repository
 ```bash
-git clone https://github.com/kevinestebanpotosi/Appi_RAG.git
+git clone https://github.com/ivandario-mch/Appi_RAG.git
 cd Appi_RAG
 ```
 
@@ -38,6 +38,19 @@ Start the development server:
 uvicorn main:app --reload
 ```
 The API will be available at: `http://localhost:8000`
+
+### 📂 Configuración de Carpetas Locales
+
+Para que el proyecto funcione correctamente y no se suban archivos sensibles o pesados al repositorio, debes asegurarte de tener la siguiente estructura local (estas carpetas están ignoradas por git):
+
+1.  **`data/`**: Crea esta carpeta en la raíz. Aquí es donde debes colocar los archivos PDF que deseas procesar.
+    ```bash
+    mkdir data
+    ```
+2.  **`.env`**: Crea este archivo con tus credenciales (ver sección de Configuración al final).
+3.  **`venv/`**: Se crea automáticamente al instalar el entorno virtual (ver paso anterior).
+
+> **Nota**: `data/*.pdf` y `.env` están configurados en `.gitignore` y `.dockerignore` para seguridad.
 
 ---
 
@@ -84,29 +97,71 @@ curl -X POST "http://localhost:8000/chat" \
 ---
 
 ## 📦 Project Structure
-```
+```txt
 Appi_RAG/
-├── main.py                 # FastAPI Application Application entry point
-├── Dockerfile              # Container definition
-├── requirements.txt        # Python dependencies (Optimized)
-├── .env                    # Environment variables (DO NOT COMMIT)
-├── README.md               # Documentation
-│
+├── data/                      # 📁 Coloca tus PDFs aquí
 ├── src/
-│   ├── config.py           # Configuration loader
-│   ├── ingestion.py        # PDF processing & Azure upload pipeline
-│   └── rag_engine.py       # RAG logic (Retrieval + Generation)
-│
-└── data/                   # Directory for storing local PDFs
+│   ├── __init__.py
+│   ├── config.py
+│   ├── ingestion.py
+│   └── rag_engine.py
+├── main.py                   # API FastAPI
+├── probe.py                  # 🛠 Script de prueba 
+├── locustfile.py             # 🦗 Script de pruebas de carga
+├── run_ingestion.py
+├── .env
+├── requirements.txt
+└── README.md
 ```
-
----
-
 ## 🛠 Tech Stack
 | Component | Technology | Purpose |
 |-----------|------------|---------|
-| **Core** | Python 3.9, FastAPI | API Framework |
-| **Embeddings** | FastEmbed (Qdrant) | Lightweight local vectorization |
-| **Vector DB** | Azure AI Search | Enterprise-grade vector storage |
-| **LLM** | Groq (Llama 3.3) | Ultra-fast inference |
+| **Core** | Python 3.9+, FastAPI | Framework de API |
+| **Embeddings** | FastEmbed (Qdrant) | Vectorización local ligera |
+| **Vector DB** | Qdrant | Base de datos vectorial (Reemplaza a Azure) |
+| **LLM** | Groq (Llama 3.3) | Inferencia ultra-rápida |
+
+> [!WARNING]
+> **Nota sobre Qdrant Client**:
+> En versiones recientes de `qdrant-client` (1.16+), el método `search` puede no estar disponible o comportarse de manera diferente. Este proyecto utiliza `client.query_points(...)` en `src/rag_engine.py` para garantizar la compatibilidad y estabilidad.
+
+
+## 🔑 Configuration (.env)
+
+Create a `.env` file in the root directory with the following variables:
+
+```ini
+QDRANT_URL="your_qdrant_url"
+QDRANT_API_KEY="your_qdrant_api_key"
+GROQ_API_KEY="your_groq_api_key"
+COLLECTION_NAME="ecommerce-rag-collection"
+```
+
+
+## 🦗 Pruebas de Carga (Stress Testing)
+
+Para simular tráfico y probar la resistencia de la API, utilizamos **Locust**.
+
+### 1. Instalar Locust
+Si instalaste las dependencias (`pip install -r requirements.txt`), ya lo tienes. Si no:
+```bash
+pip install locust
+```
+
+### 2. Ejecutar la Prueba
+Ejecuta el siguiente comando en la terminal:
+```bash
+locust
+```
+Esto abrirá una interfaz web en `http://localhost:8089`.
+
+### 3. Configurar la Prueba
+En la interfaz web:
+- **Number of users**: Número total de usuarios simultáneos (ej. 50).
+- **Spawn rate**: Cuántos usuarios nuevos entran por segundo (ej. 1).
+- **Host**: `http://localhost:8000` (la dirección de tu API).
+
+El script `locustfile.py` simula usuarios haciendo preguntas aleatorias al endpoint `/api/chat`, verificando respuestas exitosas (200) y detectando límites de velocidad (429) si usas una API key gratuita de Groq.
+
+
 

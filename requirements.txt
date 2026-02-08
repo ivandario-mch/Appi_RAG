@@ -1,19 +1,22 @@
-# --- Cloud SDKs ---
-azure-search-documents>=11.4.0
-azure-ai-inference
-azure-core
+# --- Core ---
+fastapi>=0.100.0
+uvicorn>=0.22.0
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+httpx>=0.23.0
+
+# --- LLM & Vector DB ---
 groq>=0.5.0
-
-# --- AI & Processing --
+qdrant-client>=1.1.0
 fastembed>=0.2.0
-#sentence-transformers>=2.2.0
-pypdf>=4.0.0
-#torch>=2.0.0
 
-# --- Utilities ---
-python-dotenv
+# --- Data Processing ---
+pypdf>=4.0.0
 numpy
 tqdm
 
-fastapi
-uvicorn
+# --- Optional / Legacy ---
+# sentence-transformers>=2.2.0  # Optional if using local heavy models
+
+# --- Testing ---
+locust>=2.0.0

@@ -1,76 +1,146 @@
 import os
 from pypdf import PdfReader
 from fastembed import TextEmbedding
-from azure.core.credentials import AzureKeyCredential
-from azure.search.documents import SearchClient
-from azure.search.documents.indexes import SearchIndexClient
-from azure.search.documents.indexes.models import (
-    SearchIndex, SimpleField, SearchField, SearchFieldDataType,
-    VectorSearch, HnswAlgorithmConfiguration, VectorSearchProfile
-)
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams, PointStruct
 from src.config import Config
+import uuid
 
 class IngestionPipeline:
     def __init__(self):
         print(f"Loading Embedding Model: {Config.EMBEDDING_MODEL}...")
-        # using the same model name as before if supported, or default
+        # Using the same model name as before if supported, or default
         model_name = "sentence-transformers/all-MiniLM-L6-v2" if Config.EMBEDDING_MODEL == "all-MiniLM-L6-v2" else Config.EMBEDDING_MODEL
         self.embed_model = TextEmbedding(model_name=model_name)
         
-        self.credential = AzureKeyCredential(Config.AZURE_KEY)
-        self.index_client = SearchIndexClient(Config.AZURE_ENDPOINT, self.credential)
-        self.search_client = SearchClient(Config.AZURE_ENDPOINT, Config.INDEX_NAME, self.credential)
-        self._create_index_if_not_exists()
+        # Qdrant Client (reemplaza Azure)
+        print(f"Connecting to Qdrant at {Config.QDRANT_URL}...")
+        self.qdrant_client = QdrantClient(
+            url=Config.QDRANT_URL,
+            api_key=Config.QDRANT_API_KEY,
+            timeout=10.0
+        )
+        
+        self._create_collection_if_not_exists()
 
-    def _create_index_if_not_exists(self):
-        if Config.INDEX_NAME not in self.index_client.list_index_names():
-            print(f"Creating Index: {Config.INDEX_NAME}")
-            fields = [
-                SimpleField(name="id", type=SearchFieldDataType.String, key=True),
-                SimpleField(name="content", type=SearchFieldDataType.String),
-                SimpleField(name="source", type=SearchFieldDataType.String),
-                SearchField(name="content_vector", type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
-                            searchable=True, vector_search_dimensions=384, vector_search_profile_name="my-vector-profile")
-            ]
-            vector_search = VectorSearch(
-                algorithms=[HnswAlgorithmConfiguration(name="my-hnsw")],
-                profiles=[VectorSearchProfile(name="my-vector-profile", algorithm_configuration_name="my-hnsw")]
-            )
-            index = SearchIndex(name=Config.INDEX_NAME, fields=fields, vector_search=vector_search)
-            self.index_client.create_index(index)
+    def _create_collection_if_not_exists(self):
+        """Crea la colección en Qdrant si no existe"""
+        try:
+            collections = self.qdrant_client.get_collections().collections
+            collection_names = [col.name for col in collections]
+            
+            if Config.COLLECTION_NAME not in collection_names:
+                print(f"Creating Collection: {Config.COLLECTION_NAME}")
+                self.qdrant_client.create_collection(
+                    collection_name=Config.COLLECTION_NAME,
+                    vectors_config=VectorParams(
+                        size=Config.VECTOR_SIZE,  # 384 para all-MiniLM-L6-v2
+                        distance=Distance.COSINE
+                    )
+                )
+                print(f"✅ Collection '{Config.COLLECTION_NAME}' created successfully")
+            else:
+                print(f"✅ Collection '{Config.COLLECTION_NAME}' already exists")
+        except Exception as e:
+            print(f"❌ Error creating/checking collection: {e}")
+            raise
 
     def process_pdf(self, file_path):
+        """Procesa un archivo PDF y lo indexa en Qdrant"""
         if not os.path.exists(file_path):
-            print("File not found.")
+            print(f"❌ File not found: {file_path}")
             return
 
-        print(f"Processing: {file_path}")
-        reader = PdfReader(file_path)
-        text = "".join([page.extract_text() for page in reader.pages])
+        print(f"📄 Processing: {file_path}")
+        
+        try:
+            reader = PdfReader(file_path)
+            text = "".join([page.extract_text() for page in reader.pages])
+        except Exception as e:
+            print(f"❌ Error reading PDF: {e}")
+            return
+        
+        if not text.strip():
+            print(f"⚠️  Warning: No text extracted from {file_path}")
+            return
         
         # Chunking Strategy
         chunks = []
         for i in range(0, len(text), Config.CHUNK_SIZE - Config.CHUNK_OVERLAP):
-            chunks.append(text[i : i + Config.CHUNK_SIZE])
+            chunk = text[i : i + Config.CHUNK_SIZE].strip()
+            if chunk:  # Solo agregar chunks no vacíos
+                chunks.append(chunk)
             
-        print(f"Generated {len(chunks)} chunks. Uploading...")
+        print(f"📝 Generated {len(chunks)} chunks. Embedding and uploading...")
         
+        # Procesar en batches
         batch = []
-        for i, chunk in enumerate(chunks):
-            # fastembed returns a generator, so we convert to list
-            vector = list(self.embed_model.embed([chunk]))[0].tolist()
-            doc_id = f"{os.path.basename(file_path)}-{i}".replace(".", "_").replace(" ", "")
-            batch.append({
-                "id": doc_id,
-                "content": chunk,
-                "source": os.path.basename(file_path),
-                "content_vector": vector
-            })
-            
-            if len(batch) >= 50:
-                self.search_client.upload_documents(batch)
-                batch = []
+        batch_size = 50
+        total_uploaded = 0
         
+        for i, chunk in enumerate(chunks):
+            try:
+                # Embedizar el chunk
+                vector = list(self.embed_model.embed([chunk]))[0].tolist()
+                
+                # Crear punto para Qdrant
+                point = PointStruct(
+                    id=str(uuid.uuid4()),  # ID único
+                    vector=vector,
+                    payload={
+                        "content": chunk,
+                        "source": os.path.basename(file_path),
+                        "chunk_index": i,
+                        "file_path": file_path
+                    }
+                )
+                batch.append(point)
+                
+                # Subir batch cuando alcance el tamaño
+                if len(batch) >= batch_size:
+                    self.qdrant_client.upsert(
+                        collection_name=Config.COLLECTION_NAME,
+                        points=batch
+                    )
+                    total_uploaded += len(batch)
+                    print(f"  ✓ Uploaded {total_uploaded}/{len(chunks)} chunks...")
+                    batch = []
+                    
+            except Exception as e:
+                print(f"⚠️  Error processing chunk {i}: {e}")
+                continue
+        
+        # Subir el último batch si existe
         if batch:
-            self.search_client.upload_documents(batch)
-        print("Ingestion Complete.")
+            try:
+                self.qdrant_client.upsert(
+                    collection_name=Config.COLLECTION_NAME,
+                    points=batch
+                )
+                total_uploaded += len(batch)
+                print(f"  ✓ Uploaded {total_uploaded}/{len(chunks)} chunks")
+            except Exception as e:
+                print(f"❌ Error uploading final batch: {e}")
+        
+        print(f"✅ Ingestion Complete: {total_uploaded} chunks from {os.path.basename(file_path)}")
+    
+    def get_collection_stats(self):
+        """Obtiene estadísticas de la colección"""
+        try:
+            info = self.qdrant_client.get_collection(Config.COLLECTION_NAME)
+            return {
+                "name": Config.COLLECTION_NAME,
+                "points_count": info.points_count,
+                "indexed_vectors_count": info.indexed_vectors_count if hasattr(info, 'indexed_vectors_count') else info.points_count,
+                "status": info.status
+            }
+        except Exception as e:
+            return {"error": str(e)}
+    
+    def delete_collection(self):
+        """Elimina la colección (útil para resetear)"""
+        try:
+            self.qdrant_client.delete_collection(Config.COLLECTION_NAME)
+            print(f"✅ Collection '{Config.COLLECTION_NAME}' deleted")
+        except Exception as e:
+            print(f"❌ Error deleting collection: {e}")
