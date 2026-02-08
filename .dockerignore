@@ -24,6 +24,6 @@ env/
 
 # Local Dev Scripts (Not needed in Prod Container)
 probe.py
-# run_ingestion.py
-# src/ingestion.py # Uncomment if you want to exclude ingestion logic from the container
+src/run_ingestion.py
+src/ingestion.py 
 data/
