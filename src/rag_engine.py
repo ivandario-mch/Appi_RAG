@@ -1,27 +1,25 @@
 import httpx
 from groq import Groq
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct, SearchRequest, NamedVector
+from qdrant_client.models import Distance, VectorParams
 from fastembed import TextEmbedding
 from src.config import Config
-import uuid
 
 class RAGEngine:
     def __init__(self):
-        print("Inicializando RAG Engine...")
+        print("🚀 Inicializando RAG Engine...")
         
-        # Load embedding model
+        # Cargar modelo de embedding
         model_name = "sentence-transformers/all-MiniLM-L6-v2" if Config.EMBEDDING_MODEL == "all-MiniLM-L6-v2" else Config.EMBEDDING_MODEL
         self.embed_model = TextEmbedding(model_name=model_name)
         
-        # Initialize Groq
+        # Cliente Groq
         self.groq_client = Groq(
             api_key=Config.GROQ_KEY,
             http_client=httpx.Client()
         )
         
-        # Qdrant Client
-        print(f"Conectando a Qdrant: {Config.QDRANT_URL}")
+        # Cliente Qdrant
         self.qdrant_client = QdrantClient(
             url=Config.QDRANT_URL,
             api_key=Config.QDRANT_API_KEY,
@@ -29,142 +27,111 @@ class RAGEngine:
         )
         
         self._ensure_collection_exists()
-        print("✅ RAG Engine inicializado correctamente")
-    
+        
+        # Historial simple en memoria (Opcional: para recordar la conversación actual)
+        self.chat_history = [] 
+
     def _ensure_collection_exists(self):
-        """Crea la colección en Qdrant si no existe"""
         try:
-            collections = self.qdrant_client.get_collections().collections
-            collection_names = [col.name for col in collections]
-            
-            if Config.COLLECTION_NAME not in collection_names:
-                print(f"Creando colección: {Config.COLLECTION_NAME}")
+            if not self.qdrant_client.collection_exists(Config.COLLECTION_NAME):
+                print(f"📦 Creando colección: {Config.COLLECTION_NAME}")
                 self.qdrant_client.create_collection(
                     collection_name=Config.COLLECTION_NAME,
-                    vectors_config=VectorParams(
-                        size=Config.VECTOR_SIZE,
-                        distance=Distance.COSINE
-                    )
+                    vectors_config=VectorParams(size=Config.VECTOR_SIZE, distance=Distance.COSINE)
                 )
-                print(f"✅ Colección '{Config.COLLECTION_NAME}' creada")
-            else:
-                print(f"✅ Colección '{Config.COLLECTION_NAME}' existe")
         except Exception as e:
-            print(f"❌ Error con colección: {e}")
-            raise
+            print(f"❌ Error verificando colección: {e}")
 
     def chat(self, query):
-        """
-        Realiza búsqueda vectorial y genera respuesta
-        """
-        print(f"\n🔍 Query recibida: {query}")
-        
-        # 1. Embedizar la pregunta
+        print(f"\n👤 Usuario: {query}")
+
+        # 1. Detección rápida de saludos (Para ser más amigable y rápido)
+        saludos = ["hola", "buenos dias", "buenas", "que tal", "hello"]
+        if query.lower().strip() in saludos:
+            return "¡Hola! 👋 Soy tu asistente de compras experto. ¿En qué producto estás interesado hoy o qué necesitas encontrar?", []
+
+        # 2. Embedizar
         try:
             vector = list(self.embed_model.embed([query]))[0].tolist()
-            print(f"✅ Vector generado (dimensión: {len(vector)})")
         except Exception as e:
-            error_msg = f"Error al embedizar: {str(e)}"
-            print(f"❌ {error_msg}")
-            return error_msg, []
-        
-        # 2. Buscar en Qdrant (método correcto)
+            return "Tuve un pequeño problema técnico procesando tu pregunta. ¿Podrías intentarlo de nuevo?", []
+
+        # 3. Buscar en Qdrant
         try:
-            print(f"🔎 Buscando en colección: {Config.COLLECTION_NAME}")
-            
-            # Verificar que la colección tiene documentos
-            collection_info = self.qdrant_client.get_collection(Config.COLLECTION_NAME)
-            print(f"📊 Documentos en colección: {collection_info.points_count}")
-            
-            if collection_info.points_count == 0:
-                return "La base de conocimiento está vacía. Por favor, ejecuta la ingesta de documentos primero con: python run_ingestion.py", []
-            
-            # Búsqueda vectorial
-            # Utilizando query_points ya que search puede no estar disponible
-            query_response = self.qdrant_client.query_points(
+            search_results = self.qdrant_client.query_points(
                 collection_name=Config.COLLECTION_NAME,
                 query=vector,
-                limit=5,
-                score_threshold=0.3
-            )
-            search_results = query_response.points
-            
-            print(f"✅ Encontrados {len(search_results)} resultados")
-            
+                limit=4, # 4 resultados suelen ser suficientes y confunden menos al modelo
+                score_threshold=0.4 # Subimos un poco el umbral para calidad
+            ).points
         except Exception as e:
-            error_msg = f"Error en búsqueda Qdrant: {str(e)}"
-            print(f"❌ {error_msg}")
-            return error_msg, []
-        
-        # 3. Procesar resultados
+            print(f"❌ Error Qdrant: {e}")
+            return "No pude acceder a mi catálogo en este momento. Intenta más tarde.", []
+
+        # 4. Construir Contexto
         if not search_results:
-            msg = "No encontré información relevante. Intenta reformular tu pregunta."
-            print(f"⚠️ {msg}")
-            return msg, []
-        
-        context_parts = []
+            # Fallback amigable si no hay info
+            return "Mmm, revisé mi catálogo y no encontré nada exacto sobre eso. 🧐 ¿Podrías darme más detalles o buscar una categoría diferente?", []
+
+        context_text = ""
         sources = []
-        
-        for i, result in enumerate(search_results):
+        for result in search_results:
+            source = result.payload.get("source", "General")
             content = result.payload.get("content", "")
-            source = result.payload.get("source", "Unknown")
-            score = result.score
+            # Añadimos metadatos útiles al contexto (ej. precio si existe en payload)
+            price = result.payload.get("price", "Consultar") 
             
-            print(f"  [{i+1}] Fuente: {source} | Score: {score:.3f}")
-            context_parts.append(f"[{source}] {content}")
+            context_text += f"- [Fuente: {source}] (Precio ref: {price}): {content}\n"
             sources.append(source)
+
+        sources = list(set(sources))
+
+        # 5. Generar Respuesta (EL CAMBIO CLAVE: SYSTEM PROMPT)
         
-        context = "\n\n".join(context_parts)
+        # Definimos la personalidad del bot en el System Prompt
+        system_prompt = """
+        Eres Alex, un asistente de compras virtual súper útil, experto y carismático para [TU ECOMMERCE].
         
-        # 4. Generar respuesta con Groq
-        prompt = f"""
-      Eres un Asistente de Compras Experto para [ecommerce]. Tu objetivo es ayudar a los usuarios a encontrar el producto ideal, resolver dudas técnicas y facilitar el proceso de compra utilizando únicamente la información proporcionada en el contexto.
-
-        1. Instrucciones de Comportamiento
-        Veracidad: Utiliza exclusivamente la información del "Contexto" proporcionado abajo. Si la respuesta no está en el contexto, di amablemente que no tienes esa información y ofrece contactar con soporte humano.
-        Eres un Asistente de Compras Experto. Ayuda al usuario basándote SOLO en la información del contexto.
-
-        Tono: Sé profesional, entusiasta y servicial. Usa un lenguaje que invite a la compra sin ser agresivo.
-        CONTEXTO:
-        {context}
-
-        Formato: Usa negritas para nombres de productos y precios. Utiliza listas con viñetas para comparar características.
-        PREGUNTA: {query}
-
-        2. Reglas de Negocio
-        Stock: Si el contexto indica que no hay stock, ofrece una alternativa similar presente en los documentos.
-
-        Venta Cruzada: Siempre que recomiendes un producto, menciona brevemente un accesorio o producto complementario que aparezca en el contexto.
-
-        Alucinaciones: No inventes descuentos, códigos promocionales ni fechas de entrega que no estén explícitamente en el texto.
-
-        3. Estructura de la Respuesta
-        Empatía: Valida la necesidad del usuario (ej: "Entiendo que buscas una cámara para viajes...").
-
-        Respuesta Directa: Entrega la información solicitada o la recomendación basada en los datos.
-
-        Llamado a la Acción (CTA): Finaliza con una pregunta para guiar la venta (ej: "¿Te gustaría que lo añada al carrito?" o "¿Deseas saber más sobre la garantía?").
-
-        CONTEXTO RECUPERADO: {context}
-
-        PREGUNTA DEL USUARIO: {query}
+        TUS OBJETIVOS:
+        1. Ayudar al usuario a decidir su compra basándote EXCLUSIVAMENTE en el CONTEXTO proporcionado.
+        2. Si el contexto tiene la respuesta, sé directo y entusiasta.
+        3. Si el contexto NO tiene la respuesta, admítelo amablemente y sugiere contactar a soporte, no inventes datos.
+        4. Usa emojis moderadamente para dar calidez (👋, ✅, 🚀).
+        
+        FORMATO:
+        - Usa **negritas** para resaltar productos y precios clave.
+        - Sé conciso. No escribas párrafos gigantes.
+        - Siempre termina con una pregunta o sugerencia que invite a la acción (ej: "¿Te lo agrego al carrito?", "¿Quieres ver modelos similares?").
         """
-        
+
+        user_prompt = f"""
+        CONTEXTO DEL CATÁLOGO:
+        {context_text}
+
+        PREGUNTA DEL CLIENTE:
+        {query}
+        """
+
         try:
-            print("🤖 Generando respuesta con Groq...")
             response = self.groq_client.chat.completions.create(
-                messages=[{"role": "user", "content": prompt}],
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    # Aquí podrías inyectar self.chat_history si quisieras memoria
+                    {"role": "user", "content": user_prompt}
+                ],
                 model=Config.CHAT_MODEL,
-                temperature=0.5,
-                max_tokens=1024
+                temperature=0.3, # Bajamos temperatura para que sea creativo pero fiel a los datos
+                max_tokens=800
             )
             
             answer = response.choices[0].message.content
-            print(f"✅ Respuesta generada ({len(answer)} caracteres)")
             
-            return answer, list(set(sources))
+            # Guardar historial simple (Opcional)
+            self.chat_history.append({"role": "user", "content": query})
+            self.chat_history.append({"role": "assistant", "content": answer})
             
+            return answer, sources
+
         except Exception as e:
-            error_msg = f"Error en generación Groq: {str(e)}"
-            print(f"❌ {error_msg}")
-            return error_msg, sources
+            print(f"❌ Error Groq: {e}")
+            return "Tuve un problema generando la respuesta. ¿Podemos intentar con otra pregunta?", sources
